@@ -1,0 +1,19 @@
+[package]
+name = "spx-codegen"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+spx = { path = "../spx" }
+
+phf = { workspace = true }
+phf_codegen = "0.11"
+phf_generator = "0.11"
+const-fnv1a-hash = { workspace = true }
+easy-ext = "1.0.1"
+walkdir = "2.3.3"
+path-slash = "0.2.1"

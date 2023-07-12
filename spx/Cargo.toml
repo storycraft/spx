@@ -1,0 +1,13 @@
+[package]
+name = "spx"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+phf = { workspace = true }
+phf_shared = { workspace = true }
+const-fnv1a-hash = { workspace = true }

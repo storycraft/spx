@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "codegen",
+    "spx",
+]
+
+[workspace.package]
+version = "0.1.0"
+description = "A short description of my package"
+edition = "2018"
+authors = ["storycraft <storycraft@pancake.sh>"]
+license = "Apache-2.0"
+repository = "https://github.com/storycraft/spx"
+
+[workspace.dependencies]
+phf = { version = "0.11", default-features = false }
+phf_shared = "0.11"
+const-fnv1a-hash = "1.1.0"
