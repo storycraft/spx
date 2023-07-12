@@ -6,7 +6,7 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-description = "A short description of my package"
+description = "File archive library for bundling and protecting resources using compile-time code generation"
 edition = "2018"
 authors = ["storycraft <storycraft@pancake.sh>"]
 license = "Apache-2.0"
