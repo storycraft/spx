@@ -6,7 +6,7 @@
 
 use std::{
     fs::File,
-    io::{self, BufReader, Read, Write},
+    io::{self, BufReader, Read, Seek, Write},
     path::Path,
 };
 
@@ -17,14 +17,14 @@ use walkdir::WalkDir;
 use crate::SpxBuilder;
 
 #[ext(StreamExt)]
-pub impl<W: Write> SpxBuilder<W> {
+pub impl<W: Write + Seek> SpxBuilder<W> {
     fn write_stream(&mut self, name: String, mut stream: impl Read) -> io::Result<u64> {
-        io::copy(&mut stream, &mut self.start_file(name))
+        io::copy(&mut stream, &mut self.start_file(name)?)
     }
 }
 
 #[ext(FileExt)]
-pub impl<W: Write> SpxBuilder<W> {
+pub impl<W: Write + Seek> SpxBuilder<W> {
     fn from_dir(&mut self, base: impl AsRef<Path>) -> io::Result<u64> {
         let mut count = 0;
 

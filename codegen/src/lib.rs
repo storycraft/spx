@@ -7,7 +7,7 @@
 pub mod ext;
 
 use core::fmt;
-use std::io::{self, Write};
+use std::io::{self, Seek, Write};
 
 use const_fnv1a_hash::fnv1a_hash_str_32;
 use phf_generator::{generate_hash, HashState};
@@ -20,7 +20,7 @@ pub struct SpxBuilder<W> {
     values: Vec<(u32, FileInfo)>,
 }
 
-impl<W: Write> SpxBuilder<W> {
+impl<W: Write + Seek> SpxBuilder<W> {
     pub const fn new(writer: W) -> Self {
         Self {
             writer,
@@ -29,24 +29,18 @@ impl<W: Write> SpxBuilder<W> {
         }
     }
 
-    pub fn start_file(&mut self, name: String) -> SpxFileEntry<'_, W> {
+    pub fn start_file(&mut self, name: String) -> io::Result<SpxFileEntry<'_, W>> {
         let hash = fnv1a_hash_str_32(&name);
 
-        let pos = self
-            .values
-            .last()
-            .and_then(|info| Some(info.1.offset + info.1.size))
-            .unwrap_or(0);
-
-        dbg!(&name);
+        let pos = self.writer.stream_position()?;
 
         self.keys.push(name);
         self.values.push((hash, FileInfo::new(pos, 0)));
 
-        SpxFileEntry {
+        Ok(SpxFileEntry {
             writer: &mut self.writer,
             info: &mut self.values.last_mut().unwrap().1,
-        }
+        })
     }
 
     pub fn build(&self) -> Display {
@@ -80,7 +74,7 @@ impl<W: Write> Write for SpxFileEntry<'_, W> {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+        self.writer.flush()
     }
 }
 
