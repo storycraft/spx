@@ -23,6 +23,7 @@ impl<'a, R> SpxArchive<'a, R> {
 }
 
 impl<R: Read + Seek> SpxArchive<'_, R> {
+    #[inline(always)]
     fn open_raw(&mut self, file: FileInfo, key: &[u8; 32], hash: u32) -> io::Result<SpxFileStream<&mut R>> {
         self.stream.seek(SeekFrom::Start(file.offset))?;
 
@@ -36,6 +37,7 @@ impl<R: Read + Seek> SpxArchive<'_, R> {
         ))
     }
 
+    #[inline(always)]
     pub fn open(
         &mut self,
         path: &(impl AsRef<str> + ?Sized),
