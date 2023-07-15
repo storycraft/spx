@@ -11,7 +11,8 @@ use std::io::{self, Seek, Write};
 
 use const_fnv1a_hash::fnv1a_hash_str_32;
 use phf_generator::{generate_hash, HashState};
-use spx::FileInfo;
+use sha2::{Digest, Sha256};
+use spx::{crypto::SpxCipherStream, FileInfo};
 
 #[derive(Debug)]
 pub struct SpxBuilder<W> {
@@ -34,11 +35,13 @@ impl<W: Write + Seek> SpxBuilder<W> {
 
         let pos = self.writer.stream_position()?;
 
+        let key: [u8; 32] = Sha256::new().chain_update(&name.as_bytes()).finalize().into();
+
         self.keys.push(name);
         self.values.push((hash, FileInfo::new(pos, 0)));
 
         Ok(SpxFileEntry {
-            writer: &mut self.writer,
+            writer: SpxCipherStream::new(&key, &mut self.writer),
             info: &mut self.values.last_mut().unwrap().1,
         })
     }
@@ -53,9 +56,8 @@ impl<W: Write + Seek> SpxBuilder<W> {
     }
 }
 
-#[derive(Debug)]
 pub struct SpxFileEntry<'a, W> {
-    writer: &'a mut W,
+    writer: SpxCipherStream<&'a mut W>,
     info: &'a mut FileInfo,
 }
 
@@ -68,6 +70,7 @@ impl<W> SpxFileEntry<'_, W> {
 impl<W: Write> Write for SpxFileEntry<'_, W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let written = self.writer.write(buf)?;
+
         self.info.size += written as u64;
 
         Ok(written)

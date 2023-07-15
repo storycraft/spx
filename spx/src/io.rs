@@ -6,61 +6,74 @@
 
 use std::io::{self, Read, Seek, SeekFrom, Take};
 
-use crate::{FileInfo, FileMap};
+use sha2::{Digest, Sha256};
+
+use crate::{crypto::SpxCipherStream, FileInfo, FileMap};
 
 #[derive(Debug)]
-pub struct ArchiveStream<'a, R> {
+pub struct SpxArchive<'a, R> {
     file_map: FileMap<'a>,
     stream: R,
 }
 
-impl<'a, R> ArchiveStream<'a, R> {
+impl<'a, R> SpxArchive<'a, R> {
     pub const fn new(file_map: FileMap<'a>, stream: R) -> Self {
         Self { file_map, stream }
     }
 }
 
-impl<R: Read + Seek> ArchiveStream<'_, R> {
+impl<R: Read + Seek> SpxArchive<'_, R> {
+    fn open_raw(&mut self, file: FileInfo, key: &[u8; 32]) -> io::Result<SpxFileStream<&mut R>> {
+        self.stream.seek(SeekFrom::Start(file.offset))?;
+
+        Ok(SpxCipherStream::new(
+            key,
+            SpxRawFileStream {
+                file,
+                stream: (&mut self.stream).take(file.size),
+            },
+        ))
+    }
+
     pub fn open(
         &mut self,
         path: &(impl AsRef<str> + ?Sized),
-    ) -> io::Result<Option<FileStream<&mut R>>> {
-        let file = match self.file_map.get(path) {
-            Some(file) => *file,
-            None => return Ok(None),
-        };
+    ) -> Option<io::Result<SpxFileStream<&mut R>>> {
+        let file = *self.file_map.get(path)?;
 
-        self.stream.seek(SeekFrom::Start(file.offset))?;
-        Ok(Some(FileStream {
-            file,
-            stream: (&mut self.stream).take(file.size),
-        }))
+        let key: [u8; 32] = Sha256::new()
+            .chain_update(&path.as_ref().as_bytes())
+            .finalize()
+            .into();
+
+        Some(self.open_raw(file, &key))
     }
 }
 
-#[derive(Debug)]
-pub struct FileStream<R> {
+pub type SpxFileStream<R> = SpxCipherStream<SpxRawFileStream<R>>;
+
+pub struct SpxRawFileStream<R> {
     file: FileInfo,
     stream: Take<R>,
 }
 
-impl<R: Read> Read for FileStream<R> {
+impl<R: Read> Read for SpxRawFileStream<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         Ok(self.stream.read(buf)?)
     }
 }
 
-impl<R: Seek> Seek for FileStream<R> {
+impl<R: Seek> Seek for SpxRawFileStream<R> {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let absolute_pos = match pos {
-            SeekFrom::Start(offset) => {
-                self.stream.get_mut().seek(SeekFrom::Start(
-                    self.file.offset + offset.min(self.file.size),
-                ))? - self.file.offset
-            }
-            SeekFrom::End(offset) => self.stream.get_mut().seek(SeekFrom::Start(
-                self.file.offset + (self.file.size as i64 - offset).max(0) as u64,
+            SeekFrom::Start(offset) => self.stream.get_mut().seek(SeekFrom::Start(
+                self.file.offset + offset.min(self.file.size),
             ))?,
+
+            SeekFrom::End(offset) => self.stream.get_mut().seek(SeekFrom::Start(
+                self.file.offset + (self.file.size as i64 + offset).max(0) as u64,
+            ))?,
+
             SeekFrom::Current(offset) => {
                 let limit = self.stream.limit() as i64;
 

@@ -17,3 +17,5 @@ const-fnv1a-hash = { workspace = true }
 easy-ext = "1.0.1"
 walkdir = "2.3.3"
 path-slash = "0.2.1"
+sha2 = { workspace = true }
+chacha20 = { workspace = true }

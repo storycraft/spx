@@ -11,3 +11,5 @@ repository.workspace = true
 phf = { workspace = true }
 phf_shared = { workspace = true }
 const-fnv1a-hash = { workspace = true }
+sha2 = { workspace = true }
+chacha20 = { workspace = true }

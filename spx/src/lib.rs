@@ -5,9 +5,10 @@
  */
 
 pub mod io;
+pub mod crypto;
 
 use const_fnv1a_hash::fnv1a_hash_str_32;
-use phf_shared::HashKey;
+use phf_shared::{HashKey, Hashes};
 
 #[derive(Debug)]
 pub struct FileMap<'a> {
@@ -36,17 +37,21 @@ impl<'a> FileMap<'a> {
         self.len() == 0
     }
 
+    #[inline(always)]
     pub fn get(&self, path: &(impl AsRef<str> + ?Sized)) -> Option<&'a FileInfo> {
         if self.disps.is_empty() {
-            return None;
+            None
+        } else {
+            let path = path.as_ref();
+            self.get_internal(phf_shared::hash(path, &self.key), fnv1a_hash_str_32(path))
         }
+    }
 
-        let path = path.as_ref();
-        let hashes = phf_shared::hash(path, &self.key);
-        let index = phf_shared::get_index(&hashes, self.disps, self.values.len());
+    fn get_internal(&self, map_hash: Hashes, fnv1a_hash: u32) -> Option<&'a FileInfo> {
+        let index = phf_shared::get_index(&map_hash, self.disps, self.values.len());
 
         let value = &self.values[index as usize];
-        if value.0 == fnv1a_hash_str_32(path) {
+        if value.0 == fnv1a_hash {
             Some(&value.1)
         } else {
             None

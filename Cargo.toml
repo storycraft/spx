@@ -16,3 +16,5 @@ repository = "https://github.com/storycraft/spx"
 phf = { version = "0.11", default-features = false }
 phf_shared = "0.11"
 const-fnv1a-hash = "1.1.0"
+sha2 = "0.10.7"
+chacha20 = "0.9.1"
