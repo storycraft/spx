@@ -4,6 +4,8 @@
  * Copyright (c) storycraft. Licensed under the Apache Licence 2.0.
  */
 
+#![doc = include_str!("../../README.md")]
+
 pub mod io;
 pub mod crypto;
 
@@ -11,6 +13,9 @@ use const_fnv1a_hash::fnv1a_hash_str_32;
 use phf_shared::{HashKey, Hashes};
 
 #[derive(Debug)]
+/// File mapping of a spx archive file. It is built in compile-time with perfect hash table, with original key vanished.
+/// 
+/// Each entry contains tuple of  fnv1a hash of actual file name and [`FileInfo`] object.
 pub struct FileMap<'a> {
     #[doc(hidden)]
     pub key: HashKey,
@@ -21,6 +26,7 @@ pub struct FileMap<'a> {
 }
 
 impl<'a> FileMap<'a> {
+    /// Create new empty [`FileMap`]
     pub const fn new() -> Self {
         Self {
             key: 0,
@@ -66,7 +72,10 @@ impl<'a> FileMap<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct FileInfo {
+    /// Absolute offset from archive file
     pub offset: u64,
+
+    /// Size of actual file
     pub size: u64,
 }
 
@@ -74,9 +83,4 @@ impl FileInfo {
     pub const fn new(offset: u64, size: u64) -> Self {
         Self { offset, size }
     }
-}
-
-#[macro_export]
-macro_rules! spx_archive {
-    ($path: literal) => {};
 }

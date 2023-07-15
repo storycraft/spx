@@ -11,8 +11,8 @@ repository.workspace = true
 spx = { path = "../spx" }
 
 phf = { workspace = true }
-phf_codegen = "0.11"
-phf_generator = "0.11"
+phf_codegen = { workspace = true }
+phf_generator = { workspace = true }
 const-fnv1a-hash = { workspace = true }
 easy-ext = "1.0.1"
 walkdir = "2.3.3"

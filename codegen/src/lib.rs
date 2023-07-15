@@ -4,6 +4,8 @@
  * Copyright (c) storycraft. Licensed under the Apache Licence 2.0.
  */
 
+#![doc = include_str!("../README.md")]
+
 pub mod ext;
 
 use core::fmt;
@@ -15,6 +17,7 @@ use sha2::{Digest, Sha256};
 use spx::{crypto::SpxCipherStream, FileInfo};
 
 #[derive(Debug)]
+/// Compile-time [`FileMap`] builder
 pub struct SpxBuilder<W> {
     writer: W,
     keys: Vec<String>,
@@ -22,6 +25,7 @@ pub struct SpxBuilder<W> {
 }
 
 impl<W: Write + Seek> SpxBuilder<W> {
+    /// Create new builder
     pub const fn new(writer: W) -> Self {
         Self {
             writer,
@@ -30,6 +34,7 @@ impl<W: Write + Seek> SpxBuilder<W> {
         }
     }
 
+    /// Start new file entry
     pub fn start_file(&mut self, name: String) -> io::Result<SpxFileEntry<'_, W>> {
         let hash = fnv1a_hash_str_32(&name);
 
@@ -46,6 +51,7 @@ impl<W: Write + Seek> SpxBuilder<W> {
         })
     }
 
+    /// Generate and return [`FileMap`] code
     pub fn build(&self) -> Display {
         let state = generate_hash(&self.keys);
 

@@ -18,6 +18,7 @@ use crate::SpxBuilder;
 
 #[ext(StreamExt)]
 pub impl<W: Write + Seek> SpxBuilder<W> {
+    /// Write a file entry from [`Read`] stream
     fn write_stream(&mut self, name: String, mut stream: impl Read) -> io::Result<u64> {
         io::copy(&mut stream, &mut self.start_file(name)?)
     }
@@ -25,6 +26,8 @@ pub impl<W: Write + Seek> SpxBuilder<W> {
 
 #[ext(FileExt)]
 pub impl<W: Write + Seek> SpxBuilder<W> {
+
+    /// Write every disk files from base directory
     fn from_dir(&mut self, base: impl AsRef<Path>) -> io::Result<u64> {
         let mut count = 0;
 
