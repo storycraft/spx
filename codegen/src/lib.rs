@@ -113,7 +113,7 @@ impl core::fmt::Display for Display<'_> {
                 value.0, value.1.offset, value.1.size
             )?;
         }
-        write!(f, "] }};")?;
+        write!(f, "] }}")?;
 
         Ok(())
     }
