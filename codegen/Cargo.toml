@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-spx = { path = "../spx" }
+spx = { workspace = true }
 
 phf = { workspace = true }
 phf_codegen = { workspace = true }
