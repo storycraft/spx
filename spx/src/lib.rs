@@ -39,6 +39,11 @@ impl<'a> FileMap<'a> {
 
     #[inline(always)]
     pub fn get(&self, path: &(impl AsRef<str> + ?Sized)) -> Option<&'a FileInfo> {
+        self.get_entry(path).map(|(_, info)| info)
+    }
+
+    #[inline(always)]
+    pub fn get_entry(&self, path: &(impl AsRef<str> + ?Sized)) -> Option<&'a (u32, FileInfo)> {
         if self.disps.is_empty() {
             None
         } else {
@@ -47,12 +52,12 @@ impl<'a> FileMap<'a> {
         }
     }
 
-    fn get_internal(&self, map_hash: Hashes, fnv1a_hash: u32) -> Option<&'a FileInfo> {
+    fn get_internal(&self, map_hash: Hashes, fnv1a_hash: u32) -> Option<&'a (u32, FileInfo)> {
         let index = phf_shared::get_index(&map_hash, self.disps, self.values.len());
 
         let value = &self.values[index as usize];
         if value.0 == fnv1a_hash {
-            Some(&value.1)
+            Some(&value)
         } else {
             None
         }

@@ -23,11 +23,12 @@ impl<'a, R> SpxArchive<'a, R> {
 }
 
 impl<R: Read + Seek> SpxArchive<'_, R> {
-    fn open_raw(&mut self, file: FileInfo, key: &[u8; 32]) -> io::Result<SpxFileStream<&mut R>> {
+    fn open_raw(&mut self, file: FileInfo, key: &[u8; 32], hash: u32) -> io::Result<SpxFileStream<&mut R>> {
         self.stream.seek(SeekFrom::Start(file.offset))?;
 
         Ok(SpxCipherStream::new(
             key,
+            hash,
             SpxRawFileStream {
                 file,
                 stream: (&mut self.stream).take(file.size),
@@ -39,14 +40,14 @@ impl<R: Read + Seek> SpxArchive<'_, R> {
         &mut self,
         path: &(impl AsRef<str> + ?Sized),
     ) -> Option<io::Result<SpxFileStream<&mut R>>> {
-        let file = *self.file_map.get(path)?;
+        let (hash, file) = *self.file_map.get_entry(path)?;
 
         let key: [u8; 32] = Sha256::new()
             .chain_update(&path.as_ref().as_bytes())
             .finalize()
             .into();
 
-        Some(self.open_raw(file, &key))
+        Some(self.open_raw(file, &key, hash))
     }
 }
 

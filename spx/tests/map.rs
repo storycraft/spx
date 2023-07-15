@@ -13,8 +13,8 @@ fn map() {
         values: &[
             (2933750114, ::spx::FileInfo::new(460, 1156)),
             (4177863687, ::spx::FileInfo::new(0, 460)),
-            (3011276538, ::spx::FileInfo::new(1616, 2631)),
-            (1509948260, ::spx::FileInfo::new(4247, 834)),
+            (3011276538, ::spx::FileInfo::new(1616, 2637)),
+            (1509948260, ::spx::FileInfo::new(4253, 834)),
         ],
     };
 
