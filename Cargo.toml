@@ -5,7 +5,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.3.1"
 description = "File archive library for bundling and protecting resources using compile-time code generation"
 edition = "2018"
 authors = ["storycraft <storycraft@pancake.sh>"]
@@ -13,7 +13,7 @@ license = "Apache-2.0"
 repository = "https://github.com/storycraft/spx"
 
 [workspace.dependencies]
-spx = { version = "0.3", path = "./spx" }
+spx = { version = "0.3.1", path = "./spx" }
 
 phf = { version = "0.11", default-features = false }
 phf_generator = "0.11"
