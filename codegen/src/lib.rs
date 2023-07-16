@@ -27,7 +27,8 @@ use spx::{
 /// Compile-time [`FileMap`] builder
 pub struct SpxBuilder<W> {
     writer: W,
-    keys: HashSet<String>,
+    key_set: HashSet<String>,
+    keys: Vec<String>,
     values: Vec<(u64, FileInfo)>,
 }
 
@@ -36,7 +37,8 @@ impl<W: Write + Seek> SpxBuilder<W> {
     pub fn new(writer: W) -> Self {
         Self {
             writer,
-            keys: HashSet::new(),
+            key_set: HashSet::new(),
+            keys: Vec::new(),
             values: Vec::new(),
         }
     }
@@ -52,10 +54,11 @@ impl<W: Write + Seek> SpxBuilder<W> {
             .finalize()
             .into();
 
-        if self.keys.contains(&name) {
+        if self.key_set.insert(name.clone()) {
             panic!("duplicate key `{}`", &name);
         }
-        self.keys.insert(name);
+
+        self.keys.push(name);
 
         self.values.push((hash, FileInfo::new(pos, 0)));
 
