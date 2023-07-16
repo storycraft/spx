@@ -80,7 +80,7 @@ impl<S: Write> Write for SpxCipherStream<S> {
             .apply_keystream_b2b(&buf[..size], &mut self.buffer[..size])
             .unwrap();
 
-        self.stream.write(&mut self.buffer[..size])
+        self.stream.write(&self.buffer[..size])
     }
 
     fn flush(&mut self) -> io::Result<()> {

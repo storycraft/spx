@@ -28,7 +28,7 @@ impl LookupMap {
 
     #[inline(always)]
     pub fn get_raw<T: ?Sized + PhfHash>(&self, x: &T) -> (u32, u64) {
-        self.values[get_index(&hash(x, &self.key), &self.disps, self.values.len()) as usize]
+        self.values[get_index(&hash(x, &self.key), self.disps, self.values.len()) as usize]
     }
 }
 

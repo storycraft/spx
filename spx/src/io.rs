@@ -45,7 +45,7 @@ impl<R: Read + Seek> SpxArchive<R> {
         let (hash, file) = self.file_map.get_entry(path)?;
 
         let key: [u8; 32] = Sha256::new()
-            .chain_update(&path.as_ref().as_bytes())
+            .chain_update(path.as_ref().as_bytes())
             .finalize()
             .into();
 
@@ -62,7 +62,7 @@ pub struct SpxRawFileStream<R> {
 
 impl<R: Read> Read for SpxRawFileStream<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        Ok(self.stream.read(buf)?)
+        self.stream.read(buf)
     }
 }
 
@@ -89,6 +89,6 @@ impl<R: Seek> Seek for SpxRawFileStream<R> {
         let file_pos = absolute_pos - self.file.offset;
         self.stream.set_limit(self.file.size - file_pos);
 
-        return Ok(file_pos);
+        Ok(file_pos)
     }
 }

@@ -28,7 +28,7 @@ pub impl<W: Write + Seek> SpxBuilder<W> {
 pub impl<W: Write + Seek> SpxBuilder<W> {
 
     /// Write every disk files from base directory
-    fn from_dir(&mut self, base: impl AsRef<Path>) -> io::Result<u64> {
+    fn write_dir(&mut self, base: impl AsRef<Path>) -> io::Result<u64> {
         let mut count = 0;
 
         for entry in WalkDir::new(&base) {

@@ -48,7 +48,7 @@ impl<W: Write + Seek> SpxBuilder<W> {
         let pos = self.writer.stream_position()?;
 
         let key: [u8; 32] = Sha256::new()
-            .chain_update(&name.as_bytes())
+            .chain_update(name.as_bytes())
             .finalize()
             .into();
 
