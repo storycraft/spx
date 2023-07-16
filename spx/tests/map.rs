@@ -25,10 +25,10 @@ fn stream_test() -> Result<(), Box<dyn Error>> {
         },
     );
 
-    let mut archive = SpxArchive::new(map, Cursor::new(&archive));
+    let mut archive = SpxArchive::new(&map, Cursor::new(&archive));
 
     {
-        let mut stream = archive.open("hello world.txt").unwrap()?;
+        let mut stream = archive.open("hello world.txt")?;
 
         let mut output = String::new();
         stream.read_to_string(&mut output)?;
@@ -37,7 +37,7 @@ fn stream_test() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let mut stream = archive.open("example").unwrap()?;
+        let mut stream = archive.open("example")?;
 
         let mut output = String::new();
         stream.read_to_string(&mut output)?;

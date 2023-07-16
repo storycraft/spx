@@ -11,45 +11,42 @@ use sha2::{Digest, Sha256};
 use crate::{crypto::SpxCipherStream, FileInfo, FileMap};
 
 #[derive(Debug)]
-pub struct SpxArchive<R> {
-    file_map: FileMap,
+pub struct SpxArchive<'a, R> {
+    file_map: &'a FileMap,
     stream: R,
 }
 
-impl<R> SpxArchive<R> {
-    pub const fn new(file_map: FileMap, stream: R) -> Self {
+impl<'a, R> SpxArchive<'a, R> {
+    pub const fn new(file_map: &'a FileMap, stream: R) -> Self {
         Self { file_map, stream }
     }
 }
 
-impl<R: Read + Seek> SpxArchive<R> {
+impl<R: Read + Seek> SpxArchive<'_, R> {
     #[inline(always)]
-    fn open_raw(&mut self, file: FileInfo, key: &[u8; 32], hash: u64) -> io::Result<SpxFileStream<&mut R>> {
-        self.stream.seek(SeekFrom::Start(file.offset))?;
-
-        Ok(SpxCipherStream::new(
-            key,
-            hash,
-            SpxRawFileStream {
-                file,
-                stream: (&mut self.stream).take(file.size),
-            },
-        ))
-    }
-
-    #[inline(always)]
-    pub fn open(
-        &mut self,
-        path: &(impl AsRef<str> + ?Sized),
-    ) -> Option<io::Result<SpxFileStream<&mut R>>> {
-        let (hash, file) = self.file_map.get_entry(path)?;
+    pub fn open(&mut self, path: &(impl AsRef<str> + ?Sized)) -> io::Result<SpxFileStream<&mut R>> {
+        let (hash, file) = self.file_map.get_entry(path).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("File `{}` is not found", path.as_ref()),
+            )
+        })?;
 
         let key: [u8; 32] = Sha256::new()
             .chain_update(path.as_ref().as_bytes())
             .finalize()
             .into();
 
-        Some(self.open_raw(file, &key, hash))
+        self.stream.seek(SeekFrom::Start(file.offset))?;
+
+        Ok(SpxCipherStream::new(
+            &key,
+            hash,
+            SpxRawFileStream {
+                file,
+                stream: (&mut self.stream).take(file.size),
+            },
+        ))
     }
 }
 
