@@ -6,37 +6,41 @@
 
 #![doc = include_str!("../README.md")]
 
-pub mod io;
 pub mod crypto;
+pub mod io;
+pub mod map;
 
-use const_fnv1a_hash::fnv1a_hash_str_32;
-use phf_shared::{HashKey, Hashes};
+use const_fnv1a_hash::fnv1a_hash_str_64;
+use map::{LookupMap, OffsetKey, SizeKey};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 /// File mapping of a spx archive file. It is built in compile-time with perfect hash table, with original key vanished.
-/// 
+///
 /// Each entry contains tuple of  fnv1a hash of actual file name and [`FileInfo`] object.
-pub struct FileMap<'a> {
+pub struct FileMap {
     #[doc(hidden)]
-    pub key: HashKey,
+    offsets: &'static LookupMap,
     #[doc(hidden)]
-    pub disps: &'a [(u32, u32)],
-    #[doc(hidden)]
-    pub values: &'a [(u32, FileInfo)],
+    sizes: &'static LookupMap,
 }
 
-impl<'a> FileMap<'a> {
+impl FileMap {
     /// Create new empty [`FileMap`]
     pub const fn new() -> Self {
+        const EMPTY: LookupMap = LookupMap::new();
+
         Self {
-            key: 0,
-            disps: &[],
-            values: &[],
+            offsets: &EMPTY,
+            sizes: &EMPTY,
         }
     }
 
+    pub const fn from_maps(offsets: &'static LookupMap, sizes: &'static LookupMap) -> Self {
+        Self { offsets, sizes }
+    }
+
     pub const fn len(&self) -> usize {
-        self.values.len()
+        self.offsets.disps.len()
     }
 
     pub const fn is_empty(&self) -> bool {
@@ -44,28 +48,26 @@ impl<'a> FileMap<'a> {
     }
 
     #[inline(always)]
-    pub fn get(&self, path: &(impl AsRef<str> + ?Sized)) -> Option<&'a FileInfo> {
+    pub fn get(&self, path: &(impl AsRef<str> + ?Sized)) -> Option<FileInfo> {
         self.get_entry(path).map(|(_, info)| info)
     }
 
     #[inline(always)]
-    pub fn get_entry(&self, path: &(impl AsRef<str> + ?Sized)) -> Option<&'a (u32, FileInfo)> {
-        if self.disps.is_empty() {
+    pub fn get_entry(&self, path: &(impl AsRef<str> + ?Sized)) -> Option<(u64, FileInfo)> {
+        if self.is_empty() {
             None
         } else {
             let path = path.as_ref();
-            self.get_internal(phf_shared::hash(path, &self.key), fnv1a_hash_str_32(path))
-        }
-    }
+            let hash = fnv1a_hash_str_64(path);
 
-    fn get_internal(&self, map_hash: Hashes, fnv1a_hash: u32) -> Option<&'a (u32, FileInfo)> {
-        let index = phf_shared::get_index(&map_hash, self.disps, self.values.len());
+            let (high, offset) = self.offsets.get_raw(&OffsetKey(path));
+            let (low, size) = self.sizes.get_raw(&SizeKey(path));
 
-        let value = &self.values[index as usize];
-        if value.0 == fnv1a_hash {
-            Some(&value)
-        } else {
-            None
+            if (high as u64) << 32 | low as u64 == hash {
+                Some((hash, FileInfo::new(offset, size)))
+            } else {
+                None
+            }
         }
     }
 }

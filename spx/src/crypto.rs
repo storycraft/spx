@@ -18,13 +18,13 @@ pub struct SpxCipherStream<S> {
 }
 
 impl<S> SpxCipherStream<S> {
-    pub fn new(key: &[u8; 32], hash: u32, stream: S) -> Self {
+    pub fn new(key: &[u8; 32], hash: u64, stream: S) -> Self {
         Self {
             cipher: ChaCha20::new(
                 key.into(),
                 &{
                     let mut arr = [0_u8; 12];
-                    arr[8..].copy_from_slice(&hash.to_le_bytes());
+                    arr[4..].copy_from_slice(&hash.to_le_bytes());
                     arr
                 }
                 .into(),

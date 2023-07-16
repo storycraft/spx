@@ -11,20 +11,20 @@ use sha2::{Digest, Sha256};
 use crate::{crypto::SpxCipherStream, FileInfo, FileMap};
 
 #[derive(Debug)]
-pub struct SpxArchive<'a, R> {
-    file_map: FileMap<'a>,
+pub struct SpxArchive<R> {
+    file_map: FileMap,
     stream: R,
 }
 
-impl<'a, R> SpxArchive<'a, R> {
-    pub const fn new(file_map: FileMap<'a>, stream: R) -> Self {
+impl<R> SpxArchive<R> {
+    pub const fn new(file_map: FileMap, stream: R) -> Self {
         Self { file_map, stream }
     }
 }
 
-impl<R: Read + Seek> SpxArchive<'_, R> {
+impl<R: Read + Seek> SpxArchive<R> {
     #[inline(always)]
-    fn open_raw(&mut self, file: FileInfo, key: &[u8; 32], hash: u32) -> io::Result<SpxFileStream<&mut R>> {
+    fn open_raw(&mut self, file: FileInfo, key: &[u8; 32], hash: u64) -> io::Result<SpxFileStream<&mut R>> {
         self.stream.seek(SeekFrom::Start(file.offset))?;
 
         Ok(SpxCipherStream::new(
@@ -42,7 +42,7 @@ impl<R: Read + Seek> SpxArchive<'_, R> {
         &mut self,
         path: &(impl AsRef<str> + ?Sized),
     ) -> Option<io::Result<SpxFileStream<&mut R>>> {
-        let (hash, file) = *self.file_map.get_entry(path)?;
+        let (hash, file) = self.file_map.get_entry(path)?;
 
         let key: [u8; 32] = Sha256::new()
             .chain_update(&path.as_ref().as_bytes())

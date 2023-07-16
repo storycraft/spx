@@ -9,40 +9,54 @@
 pub mod ext;
 
 use core::fmt;
-use std::io::{self, Seek, Write};
+use std::{
+    collections::HashSet,
+    io::{self, Seek, Write},
+};
 
-use const_fnv1a_hash::fnv1a_hash_str_32;
+use const_fnv1a_hash::fnv1a_hash_str_64;
 use phf_generator::{generate_hash, HashState};
 use sha2::{Digest, Sha256};
-use spx::{crypto::SpxCipherStream, FileInfo};
+use spx::{
+    crypto::SpxCipherStream,
+    map::{OffsetKey, SizeKey},
+    FileInfo,
+};
 
 #[derive(Debug)]
 /// Compile-time [`FileMap`] builder
 pub struct SpxBuilder<W> {
     writer: W,
-    keys: Vec<String>,
-    values: Vec<(u32, FileInfo)>,
+    keys: HashSet<String>,
+    values: Vec<(u64, FileInfo)>,
 }
 
 impl<W: Write + Seek> SpxBuilder<W> {
     /// Create new builder
-    pub const fn new(writer: W) -> Self {
+    pub fn new(writer: W) -> Self {
         Self {
             writer,
-            keys: Vec::new(),
+            keys: HashSet::new(),
             values: Vec::new(),
         }
     }
 
     /// Start new file entry
     pub fn start_file(&mut self, name: String) -> io::Result<SpxFileEntry<'_, W>> {
-        let hash = fnv1a_hash_str_32(&name);
+        let hash = fnv1a_hash_str_64(&name);
 
         let pos = self.writer.stream_position()?;
 
-        let key: [u8; 32] = Sha256::new().chain_update(&name.as_bytes()).finalize().into();
+        let key: [u8; 32] = Sha256::new()
+            .chain_update(&name.as_bytes())
+            .finalize()
+            .into();
 
-        self.keys.push(name);
+        if self.keys.contains(&name) {
+            panic!("duplicate key `{}`", &name);
+        }
+        self.keys.insert(name);
+
         self.values.push((hash, FileInfo::new(pos, 0)));
 
         Ok(SpxFileEntry {
@@ -53,10 +67,20 @@ impl<W: Write + Seek> SpxBuilder<W> {
 
     /// Generate and return [`FileMap`] code
     pub fn build(&self) -> Display {
-        let state = generate_hash(&self.keys);
+        let offset_state = generate_hash(
+            &self
+                .keys
+                .iter()
+                .map(|key| OffsetKey(key))
+                .collect::<Vec<_>>(),
+        );
+
+        let size_state =
+            generate_hash(&self.keys.iter().map(|key| SizeKey(key)).collect::<Vec<_>>());
 
         Display {
-            state,
+            offset_state,
+            size_state,
             values: &self.values,
         }
     }
@@ -88,32 +112,61 @@ impl<W: Write> Write for SpxFileEntry<'_, W> {
 }
 
 pub struct Display<'a> {
-    state: HashState,
-    values: &'a [(u32, FileInfo)],
+    offset_state: HashState,
+    size_state: HashState,
+
+    values: &'a [(u64, FileInfo)],
 }
 
-impl core::fmt::Display for Display<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display<'_> {
+    fn fmt_lookup_map(
+        state: &HashState,
+        value_fn: impl Fn(usize) -> (u32, u64),
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(
             f,
-            "::spx::FileMap {{ key: {}_u64, disps: &[",
-            self.state.key
+            "::spx::map::LookupMap {{ key: {}_u64, disps: &[",
+            state.key
         )?;
 
-        for disp in &self.state.disps {
+        for disp in &state.disps {
             write!(f, "({}, {}), ", disp.0, disp.1)?;
         }
         write!(f, "], values: &[")?;
 
-        for index in &self.state.map {
-            let value = &self.values[*index];
-            write!(
-                f,
-                "({}, ::spx::FileInfo::new({}, {})), ",
-                value.0, value.1.offset, value.1.size
-            )?;
+        for &index in &state.map {
+            let value = value_fn(index);
+            write!(f, "({}, {}), ", value.0, value.1)?;
         }
         write!(f, "] }}")?;
+
+        Ok(())
+    }
+}
+
+impl core::fmt::Display for Display<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "::spx::FileMap::from_maps(&")?;
+        Self::fmt_lookup_map(
+            &self.offset_state,
+            |index| {
+                let value = self.values[index];
+                ((value.0 >> 32) as u32, value.1.offset)
+            },
+            f,
+        )?;
+
+        write!(f, ", &")?;
+        Self::fmt_lookup_map(
+            &self.size_state,
+            |index| {
+                let value = self.values[index];
+                (value.0 as u32, value.1.size)
+            },
+            f,
+        )?;
+        write!(f, ")")?;
 
         Ok(())
     }
