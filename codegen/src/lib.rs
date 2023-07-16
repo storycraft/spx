@@ -54,7 +54,7 @@ impl<W: Write + Seek> SpxBuilder<W> {
             .finalize()
             .into();
 
-        if self.key_set.insert(name.clone()) {
+        if !self.key_set.insert(name.clone()) {
             panic!("duplicate key `{}`", &name);
         }
 
