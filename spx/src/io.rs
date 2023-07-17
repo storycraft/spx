@@ -8,7 +8,7 @@ use std::io::{self, Read, Seek, SeekFrom, Take};
 
 use sha2::{Digest, Sha256};
 
-use crate::{crypto::SpxCipherStream, FileInfo, FileMap};
+use crate::{crypto::{SpxCipherStream, create_cipher}, FileInfo, FileMap};
 
 #[derive(Debug)]
 pub struct SpxArchive<'a, R> {
@@ -40,8 +40,7 @@ impl<R: Read + Seek> SpxArchive<'_, R> {
         self.stream.seek(SeekFrom::Start(file.offset))?;
 
         Ok(SpxCipherStream::new(
-            &key,
-            hash,
+            create_cipher(&key, hash),
             SpxRawFileStream {
                 file,
                 stream: (&mut self.stream).take(file.size),
