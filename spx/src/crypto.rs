@@ -4,13 +4,17 @@
  * Copyright (c) storycraft. Licensed under the Apache Licence 2.0.
  */
 
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::{
+    io::{self, Read, Seek, SeekFrom, Write},
+    pin::Pin,
+    task::{ready, Context, Poll},
+};
 
-use arrayvec::ArrayVec;
 use chacha20::{
     cipher::{KeyIvInit, StreamCipher, StreamCipherSeek},
     ChaCha20,
 };
+use futures::{AsyncRead, AsyncSeek};
 
 pub fn create_cipher(key: &[u8; 32], hash: u64) -> ChaCha20 {
     ChaCha20::new(
@@ -24,70 +28,137 @@ pub fn create_cipher(key: &[u8; 32], hash: u64) -> ChaCha20 {
     )
 }
 
-pub struct SpxCipherStream<S> {
+#[pin_project::pin_project]
+pub struct SpxCipherReader<R> {
     cipher: ChaCha20,
-    stream: S,
+    buffer: [u8; 8192],
+    #[pin]
+    reader: R,
 }
 
-impl<S> SpxCipherStream<S> {
-    pub fn new(cipher: ChaCha20, stream: S) -> Self {
-        Self { cipher, stream }
+impl<R> SpxCipherReader<R> {
+    pub const fn new(cipher: ChaCha20, reader: R) -> Self {
+        Self {
+            cipher,
+            buffer: [0_u8; 8192],
+            reader,
+        }
     }
 
-    pub const fn inner(&self) -> &S {
-        &self.stream
+    pub const fn inner(&self) -> &R {
+        &self.reader
     }
 
-    pub fn inner_mut(&mut self) -> &mut S {
-        &mut self.stream
+    pub fn inner_mut(&mut self) -> &mut R {
+        &mut self.reader
     }
 
-    pub fn into_inner(self) -> S {
-        self.stream
+    pub fn into_inner(self) -> R {
+        self.reader
     }
 }
 
-impl<S: Read> Read for SpxCipherStream<S> {
+impl<R: Read> Read for SpxCipherReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut buffer = ArrayVec::<u8, 8192>::new();
-
         let read = {
-            let len = buffer.len().min(buf.len());
+            let len = self.buffer.len().min(buf.len());
 
-            self.stream.read(&mut buffer[..len])
+            self.reader.read(&mut self.buffer[..len])
         }?;
 
         self.cipher
-            .apply_keystream_b2b(&buffer[..read], &mut buf[..read])
+            .apply_keystream_b2b(&self.buffer[..read], &mut buf[..read])
             .unwrap();
 
         Ok(read)
     }
 }
 
-impl<S: Seek> Seek for SpxCipherStream<S> {
+impl<R: Seek> Seek for SpxCipherReader<R> {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        let pos = self.stream.seek(pos)?;
+        let pos = self.reader.seek(pos)?;
         self.cipher.seek(pos);
 
         Ok(pos)
     }
 }
 
-impl<S: Write> Write for SpxCipherStream<S> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut buffer = ArrayVec::<u8, 8192>::new();
+impl<R: AsyncRead> AsyncRead for SpxCipherReader<R> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        let this = self.project();
+        let read = ready!({
+            let len = this.buffer.len().min(buf.len());
 
-        let size = buffer.len().min(buf.len());
+            this.reader.poll_read(cx, &mut this.buffer[..len])
+        }?);
 
-        self.cipher
-            .apply_keystream_b2b(&buf[..size], &mut buffer[..size])
+        this.cipher
+            .apply_keystream_b2b(&this.buffer[..read], &mut buf[..read])
             .unwrap();
 
-        self.stream.write(&buffer[..size])
+        Poll::Ready(Ok(read))
+    }
+}
+
+impl<R: AsyncSeek> AsyncSeek for SpxCipherReader<R> {
+    fn poll_seek(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        pos: SeekFrom,
+    ) -> Poll<io::Result<u64>> {
+        let this = self.project();
+
+        let pos = ready!(this.reader.poll_seek(cx, pos)?);
+        this.cipher.seek(pos);
+
+        Poll::Ready(Ok(pos))
+    }
+}
+
+pub struct SpxCipherWriter<W> {
+    cipher: ChaCha20,
+    buffer: [u8; 8192],
+    writer: W,
+}
+
+impl<W> SpxCipherWriter<W> {
+    pub const fn new(cipher: ChaCha20, writer: W) -> Self {
+        Self {
+            cipher,
+            buffer: [0_u8; 8192],
+            writer,
+        }
+    }
+
+    pub const fn inner(&self) -> &W {
+        &self.writer
+    }
+
+    pub fn inner_mut(&mut self) -> &mut W {
+        &mut self.writer
+    }
+
+    pub fn into_inner(self) -> W {
+        self.writer
+    }
+}
+
+impl<W: Write> Write for SpxCipherWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let size = self.buffer.len().min(buf.len());
+
+        self.cipher
+            .apply_keystream_b2b(&buf[..size], &mut self.buffer[..size])
+            .unwrap();
+
+        self.writer.write(&self.buffer[..size])
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.stream.flush()
+        self.writer.flush()
     }
 }

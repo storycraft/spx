@@ -18,7 +18,7 @@ use const_fnv1a_hash::fnv1a_hash_str_64;
 use phf_generator::{generate_hash, HashState};
 use sha2::{Digest, Sha256};
 use spx::{
-    crypto::{create_cipher, SpxCipherStream},
+    crypto::{create_cipher, SpxCipherWriter},
     map::{OffsetKey, SizeKey},
     FileInfo,
 };
@@ -63,7 +63,7 @@ impl<W: Write + Seek> SpxBuilder<W> {
         self.values.push((hash, FileInfo::new(pos, 0)));
 
         Ok(SpxFileEntry {
-            writer: SpxCipherStream::new(create_cipher(&key, hash), &mut self.writer),
+            writer: SpxCipherWriter::new(create_cipher(&key, hash), &mut self.writer),
             info: &mut self.values.last_mut().unwrap().1,
         })
     }
@@ -90,7 +90,7 @@ impl<W: Write + Seek> SpxBuilder<W> {
 }
 
 pub struct SpxFileEntry<'a, W> {
-    writer: SpxCipherStream<&'a mut W>,
+    writer: SpxCipherWriter<&'a mut W>,
     info: &'a mut FileInfo,
 }
 

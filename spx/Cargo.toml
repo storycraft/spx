@@ -13,5 +13,5 @@ phf_shared = { workspace = true }
 const-fnv1a-hash = { workspace = true }
 sha2 = { workspace = true }
 chacha20 = { workspace = true }
-futures = "0.3"
-arrayvec = "0.7.4"
+futures = { version = "0.3", feature = ["io"] }
+pin-project = "1.1.2"
